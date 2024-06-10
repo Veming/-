@@ -25,7 +25,7 @@ public class ConcurrentMap {
             Object value = map.get(key);
             System.out.println("Queried key: " + key + ", value: " + value);
             return value;
-        } finally {
+        } finally { 
             lock.readLock().unlock();
         }
     }

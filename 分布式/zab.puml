@@ -1,0 +1,111 @@
+@startuml
+
+title ZAB Protocol - Crash Recovery
+
+actor Client
+
+participant "Leader (before crash)" as L0
+participant "Follower1" as F1
+participant "Follower2" as F2
+participant "Candidate" as C
+participant "New Leader" as L1
+
+Client -> L0 : Write Request
+L0 -> F1 : Proposal
+L0 -> F2 : Proposal
+
+note right of L0 : Leader crashes
+
+F1 -> C : Leader down, start election
+F2 -> C : Leader down, start election
+
+alt Election
+    C -> F1 : Vote request
+    C -> F2 : Vote request
+    F1 -> C : Vote response
+    F2 -> C : Vote response
+    note right of C : Majority vote received
+    C -> C : Becomes new Leader (L1)
+end
+
+note right of L1 : Synchronization phase
+
+L1 -> F1 : Synchronize logs
+L1 -> F2 : Synchronize logs
+F1 -> L1 : ACK
+F2 -> L1 : ACK
+
+note right of L1 : Leader and followers synchronized
+
+L1 -> Client : Recovery complete
+
+@enduml
+
+@startuml
+
+title ZAB Protocol - Message Broadcasting
+
+actor Client
+
+participant "Leader" as L
+participant "Follower1" as F1
+participant "Follower2" as F2
+
+Client -> L : Write Request
+L -> L : Propose (Assign ZXID)
+L -> F1 : Send Proposal (ZXID)
+L -> F2 : Send Proposal (ZXID)
+
+F1 -> L : ACK (ZXID)
+F2 -> L : ACK (ZXID)
+
+alt Majority ACKs received
+    L -> L : Commit (ZXID)
+    L -> F1 : Commit (ZXID)
+    L -> F2 : Commit (ZXID)
+    F1 -> Client : Ack Commit (ZXID)
+    F2 -> Client : Ack Commit (ZXID)
+else Not enough ACKs
+    L -> L : Rollback (ZXID)
+end
+
+@enduml
+
+
+@startuml
+
+title ZAB Protocol - Data Synchronization
+
+participant "New Leader" as NL
+participant "Follower1" as F1
+participant "Follower2" as F2
+
+group Leader Election
+    NL -> F1 : Request votes
+    NL -> F2 : Request votes
+    F1 -> NL : Vote
+    F2 -> NL : Vote
+end
+
+note right of NL : New Leader Elected
+
+group Synchronization Phase
+    NL -> F1 : Send latest ZXID
+    NL -> F2 : Send latest ZXID
+    F1 -> NL : Send missing transactions
+    F2 -> NL : Send missing transactions
+end
+
+note right of F1 : Synchronization complete
+note right of F2 : Synchronization complete
+
+group Commit Phase
+    NL -> F1 : Commit all transactions
+    NL -> F2 : Commit all transactions
+    F1 -> NL : ACK
+    F2 -> NL : ACK
+end
+
+note right of NL : All nodes synchronized
+
+@enduml
